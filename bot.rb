@@ -28,6 +28,23 @@ require 'rest-client'
 ENV["DISCORDRB_NONACL"] = "true"
 require 'discordrb' # https://www.rubydoc.info/gems/discordrb/3.2.1/
 
+class String
+    def encap(a = '', b = '')
+        return a + self + (b == '' ? a : b)
+    end
+
+    def quote
+        return self.encap('"')
+    end
+end
+
+def dismantle_tags(str)
+    str.scan(/\[(.*?)\]/).each do |match|
+        payload = match.first.split(':')[1..-1].join(':')
+        str.gsub!(match.first.encap('[', ']'), payload.quote)
+    end
+end
+
 def get_recent_posts()
     begin
         url = "#{MILKBOX_URL}/getRecentPosts?application_id=#{MILKBOX_APPLICATION_ID}"
@@ -57,7 +74,7 @@ def embed_latest_posts(channel, cutoff_time)
         if ((difference > 0) && (difference < WATCH_SLEEP_PERIOD))
             channel.send_embed do |embed|
                 embed.title = post["contents"]["title"]
-                embed.description = post["contents"]["body"]
+                embed.description = dismantle_tags(post["contents"]["body"])
                 embed.author = Discordrb::Webhooks::EmbedAuthor.new(
                     name: post["author"]["alias"],
                     icon_url: "#{MILKBOX_URL}/getAvatar?application_id=#{MILKBOX_APPLICATION_ID}&user_id=#{post["author"]["id"]}"
