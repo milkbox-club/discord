@@ -43,6 +43,7 @@ def dismantle_tags(str)
         payload = match.first.split(':')[1..-1].join(':')
         str.gsub!(match.first.encap('[', ']'), payload.quote)
     end
+    return str
 end
 
 def get_recent_posts()
