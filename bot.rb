@@ -133,7 +133,7 @@ def format_player_string(player)
 end
 
 def format_contributions_string(contributions)
-    return "#{contributions["count"]} contribution#{contributions["count"].length == 1 ? "" : "s"}"
+    return "#{contributions["count"]} contribution#{contributions["count"] == 1 ? "" : "s"}"
 end
 
 $bot = Discordrb::Bot.new(token: DISCORD_TOKEN, client_id: DISCORD_CLIENT_ID, intents: [:server_messages])
