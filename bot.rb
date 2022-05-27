@@ -132,6 +132,10 @@ def format_player_string(player)
     return body
 end
 
+def format_contributions_string(contributions)
+    return "#{contributions["count"]} contribution#{contributions["count"].length == 1 ? "" : "s"}"
+end
+
 $bot = Discordrb::Bot.new(token: DISCORD_TOKEN, client_id: DISCORD_CLIENT_ID, intents: [:server_messages])
 
 $bot.register_application_command(:ping, 'Ping!', server_id: DISCORD_SERVER_ID)
@@ -159,17 +163,17 @@ end
 
 $bot.application_command(:milkbox) do |event|
     milkbox_users = get_users_by_alias(event.options['alias'])
-    if milkbox_users.empty?
-        event.respond(content: "Could not match '#{event.options['alias']}' to any users")
-    else
+    unless milkbox_users.empty?
         event.respond(embeds: milkbox_users.map { |user|
-            embed = Discordrb::Webhooks::Embed.new
-            embed.thumbnail = Discordrb::Webhooks::EmbedThumbnail.new(url: MILKBOX_IMAGE_URL)
-            embed.author = Discordrb::Webhooks::EmbedAuthor.new(name: user["alias"], icon_url: get_avatar_url(user["user_id"]))
-            embed.footer = Discordrb::Webhooks::EmbedFooter.new(text: "#{user["contributions"]["count"]} contribution(s)")
-            embed.description = format_player_string(user["player"])
-            embed
+            Discordrb::Webhooks::Embed.new.tap { |embed|
+                embed.thumbnail = Discordrb::Webhooks::EmbedThumbnail.new(url: MILKBOX_IMAGE_URL)
+                embed.author = Discordrb::Webhooks::EmbedAuthor.new(name: user["alias"], icon_url: get_avatar_url(user["user_id"]))
+                embed.footer = Discordrb::Webhooks::EmbedFooter.new(text: format_contributions_string(user["contributions"]))
+                embed.description = format_player_string(user["player"])
+            }
         })
+    else
+        event.respond(content: "Could not match '#{event.options['alias']}' to any users")
     end
 end
 
