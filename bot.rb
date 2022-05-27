@@ -144,8 +144,6 @@ $bot.register_application_command(:debug, 'Debug!', server_id: DISCORD_SERVER_ID
 
 $bot.application_command(:debug) do |event|
     # ...
-    event.respond(content: "Emoji test: #{PLAY_EMOJI} #{PAUSE_EMOJI} <:checked:979718622333268048>")
-    event.channel.send_message("Emoji test: #{PLAY_EMOJI} #{PAUSE_EMOJI} <:checked:979718622333268048>")
 end
 
 $bot.register_application_command(:milkbox, 'See what your friends are listening to!', server_id: DISCORD_SERVER_ID) do |cmd|   
