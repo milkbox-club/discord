@@ -1,7 +1,10 @@
 PREFIX = '/'
+PLAY_EMOJI = "<:media_play:979715938683326464>"
+PAUSE_EMOJI = "<:media_pause:979716018312208456>" 
 
 MILKBOX_URL = "https://milkbox.club/api"
 MILKBOX_APPLICATION_ID = File.read("./milkbox_application_id").chomp
+MILKBOX_IMAGE_URL = "https://raw.githubusercontent.com/milkbox-club/milkbox/main/data/images/carton.png"
 
 WATCH_SLEEP_PERIOD = 5 # seconds
 
@@ -46,6 +49,31 @@ def dismantle_tags(str)
     return str
 end
 
+def get_avatar_url(user_id)
+    return "#{MILKBOX_URL}/getAvatar?application_id=#{MILKBOX_APPLICATION_ID}&user_id=#{user_id}"
+end
+
+def get_users_by_alias(query)
+    begin
+        url = "#{MILKBOX_URL}/getUsersByAlias?application_id=#{MILKBOX_APPLICATION_ID}&alias=#{query}"
+        uri = URI.parse(url)
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.use_ssl = true
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+        request = Net::HTTP::Get.new(url)
+        response = http.request(request)
+        if response.code == "200"
+            return JSON.parse(response.body)
+        else
+            raise StandardError.new
+        end
+        return data
+    rescue => e
+        puts e.message
+        return {}
+    end
+end
+
 def get_recent_posts()
     begin
         url = "#{MILKBOX_URL}/getRecentPosts?application_id=#{MILKBOX_APPLICATION_ID}"
@@ -77,8 +105,7 @@ def embed_latest_posts(channel, cutoff_time)
                 embed.title = post["contents"]["title"]
                 embed.description = dismantle_tags(post["contents"]["body"])
                 embed.author = Discordrb::Webhooks::EmbedAuthor.new(
-                    name: post["author"]["alias"],
-                    icon_url: "#{MILKBOX_URL}/getAvatar?application_id=#{MILKBOX_APPLICATION_ID}&user_id=#{post["author"]["id"]}"
+                    name: post["author"]["alias"], icon_url: get_avatar_url(post["author"]["id"])
                 )
                 embed.footer = Discordrb::Webhooks::EmbedFooter.new(text: post["tags"].join(", "))
             end
@@ -97,6 +124,14 @@ def watch_api(channel)
     end
 end
 
+def format_player_string(player)
+    body = "#{player["paused"] ? PAUSE_EMOJI + " Last played" : PLAY_EMOJI + " Now playing"} "
+    body += "**#{player["track"]}** by **#{player["artist"]}**\n"
+    body += "on **#{player["album"]}**"
+    body += " (*#{player["collection"]}*)" if player["collection"] != player["album"]
+    return body
+end
+
 $bot = Discordrb::Bot.new(token: DISCORD_TOKEN, client_id: DISCORD_CLIENT_ID, intents: [:server_messages])
 
 $bot.register_application_command(:ping, 'Ping!', server_id: DISCORD_SERVER_ID)
@@ -109,6 +144,35 @@ $bot.register_application_command(:debug, 'Debug!', server_id: DISCORD_SERVER_ID
 
 $bot.application_command(:debug) do |event|
     # ...
+    event.respond(content: "Emoji test: #{PLAY_EMOJI} #{PAUSE_EMOJI} <:checked:979718622333268048>")
+    event.channel.send_message("Emoji test: #{PLAY_EMOJI} #{PAUSE_EMOJI} <:checked:979718622333268048>")
+end
+
+$bot.register_application_command(:milkbox, 'See what your friends are listening to!', server_id: DISCORD_SERVER_ID) do |cmd|   
+    cmd.string('alias', 'Milkbox alias')
+end
+
+# "player": {
+#   "artist": "A Winged Victory for the Sullen",
+#   "track": "The Haunted Victorian Pencil",
+#   "album": "The Undivided Five",
+#   "collection": "The Undivided Five",
+#   "paused": true # ⏸⏵︎
+
+$bot.application_command(:milkbox) do |event|
+    milkbox_users = get_users_by_alias(event.options['alias'])
+    if milkbox_users.empty?
+        event.respond(content: "Could not match '#{event.options['alias']}' to any users")
+    else
+        event.respond(embeds: milkbox_users.map { |user|
+            embed = Discordrb::Webhooks::Embed.new
+            embed.thumbnail = Discordrb::Webhooks::EmbedThumbnail.new(url: MILKBOX_IMAGE_URL)
+            embed.author = Discordrb::Webhooks::EmbedAuthor.new(name: user["alias"], icon_url: get_avatar_url(user["user_id"]))
+            embed.footer = Discordrb::Webhooks::EmbedFooter.new(text: "#{user["contributions"]["count"]} contribution(s)")
+            embed.description = format_player_string(user["player"])
+            embed
+        })
+    end
 end
 
 $bot.register_application_command(:start, 'Start watching!', server_id: DISCORD_SERVER_ID)
